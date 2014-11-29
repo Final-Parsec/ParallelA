@@ -7,18 +7,11 @@ namespace Zombies
 
 		int sensitivity = 200;
 		int scrollSensitivity = 500;
-		Vector2 cameraMinDistance;
-		Vector2 cameraMaxDistance;
 		int scrollMaxDistance = 9999;
 		int scrollMinDistance = 5;
 		int mouseBorder = 20;
 	
 		void Start() {
-
-			Map _tileMap = GameObject.Find("Map").GetComponent<Map>();
-
-			cameraMinDistance = new Vector2(0, -_tileMap.size_z);
-			cameraMaxDistance = new Vector2(_tileMap.size_x, 0);
 		}
 				
 		// Update is called once per frame

@@ -3,25 +3,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-public class Pathfinding : MonoBehaviour
+public class Pathfinding
 {
-	private ObjectManager _ObjectManager;
 	public List<Node> pathToDestination = null;
-	
-	public void InitMap()
-	{
-		// initialize pathfinding variables
-		foreach (Node node in _ObjectManager.Map.nodes) {
-			node.gScore = int.MaxValue;
-			node.fScore = int.MaxValue;
-			node.parent = null;
-			node.isInOpenSet = false;
-			node.isInClosedSet = false;
-			node.checkedByThread = 0;
-		}
-	}
-	
-	public List<Node> Astar (Node start, Node goal)
+
+	public static List<Node> Astar (Node start, Node goal)
 	{
 		if (start == null || goal == null)
 			return null;
@@ -48,7 +34,7 @@ public class Pathfinding : MonoBehaviour
 		start.isInOpenSet = true;
 		
 		start.gScore = 0;
-		start.fScore = start.gScore + Heuristic_cost_estimate (start, goal);
+		start.fScore = start.gScore + Heuristic_cost_estimate (start, goal, start);
 		
 		
 		
@@ -60,80 +46,52 @@ public class Pathfinding : MonoBehaviour
 			current.isInOpenSet = false;
 			current.isInClosedSet = true;
 
-			//			
-			//			// look at the neighbors of the node
-			foreach (Node neighbor in current.getCloseNeighbors()) {
-				if(neighbor == null || neighbor.isInClosedSet || !neighbor.isWalkable)
-					continue;
-
-					
-				// if the new gscore is lower replace it
-				float tentativeGscore = current.gScore + 1;
-				if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
-					
-					neighbor.parent = current;
-					neighbor.gScore = tentativeGscore;
-					neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (neighbor, goal);
-
-					// if neighbor's not in the open set add it
-					if (!neighbor.isInOpenSet) {
-						openSet.Add (neighbor);
-						neighbor.isInOpenSet = true;
-						neighbor.isInClosedSet = false;
-					}
-				}
-			}
-
-			foreach (Node neighbor in current.getDiagnalNeighbors()) {
-				if(neighbor == null || neighbor.isInClosedSet || !neighbor.isWalkable)
-					continue;
-				
-				
-				// if the new gscore is lower replace it
-				float tentativeGscore = current.gScore + (float)Math.Sqrt(2);
-				if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
-					
-					neighbor.parent = current;
-					neighbor.gScore = tentativeGscore;
-					neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (neighbor, goal);
-					
-					// if neighbor's not in the open set add it
-					if (!neighbor.isInOpenSet) {
-						openSet.Add (neighbor);
-						neighbor.isInOpenSet = true;
-						neighbor.isInClosedSet = false;
-					}
-				}
-			}
+			AstarNodeExpansion(start, goal, openSet, current, current.getCloseNeighbors(), 1f);
+			//AstarNodeExpansion(start, goal, openSet, current, current.getDiagnalNeighbors(), (float)Math.Sqrt(2));
 			
 		}
 		// Fail
 		return null;
 	}
-	
-	void Awake(){
-		_ObjectManager = ObjectManager.GetInstance ();
+
+	private static void AstarNodeExpansion(Node start, Node goal, MinHeap<Node> openSet, Node current, Node[] neighbors, float cost){
+		
+		foreach (Node neighbor in neighbors) {
+			if(neighbor == null || !neighbor.isWalkable)
+				continue;
+
+			// if the new gscore is lower replace it
+			float tentativeGscore = current.gScore + cost;
+			if (!neighbor.isInOpenSet && tentativeGscore < neighbor.gScore) {
+				
+				neighbor.parent = current;
+				neighbor.gScore = tentativeGscore;
+				neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (start, goal, neighbor);
+
+				if (!neighbor.isInOpenSet){
+					openSet.Add (neighbor);
+					neighbor.isInOpenSet = true;
+					neighbor.isInClosedSet = false;
+				}
+			}
+		}
 	}
-	
-	public float Heuristic_cost_estimate (Node start, Node goal)
+
+	public static float Heuristic_cost_estimate (Node start, Node goal, Node current)
 	{
 
+		float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
+		float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
+		//float dx2 = (start.listIndex.x+1) - (goal.listIndex.x+1);
+		//float dy2 = (start.listIndex.z+1) - (goal.listIndex.z+1);
+		//float cross = Math.Abs(dx1*dy2 - dx2*dy1);
 
+		//float min = Math.Min (dx1, dy1);
+		//float max = Math.Max (dx1, dy1);
 
-
-		float xComponent = Math.Abs ((start.listIndex.x+1) - (goal.listIndex.x+1));
-		float zComponent = Math.Abs ((start.listIndex.z+1) - (goal.listIndex.z+1));
-
-		float min = Math.Min (xComponent, zComponent);
-		float max = Math.Max (xComponent, zComponent);
-
-		return (float)Math.Sqrt(min)* (float)Math.Sqrt(2)  + (max - min);
+		//return (float)Math.Sqrt(min)*1.4f  + (max - min) ;
 		
-		float hyp = (float)Math.Sqrt (Math.Pow (xComponent, 2) + Math.Pow (zComponent, 2));
-		
-		//return hyp * .9f;  // Euclidian
-		
-		//return ((xComponent + zComponent) * .7);  // Manhattan
+		return ((dx1 + dy1) * .8f);  // Manhattan
 	}
 	
 	
@@ -142,7 +100,7 @@ public class Pathfinding : MonoBehaviour
 	/// </summary>
 	/// <param name="start">Start.</param>
 	/// <param name="goal">Goal.</param>
-	private List<Node> Reconstruct_path (Node start, Node goal)
+	private static List<Node> Reconstruct_path (Node start, Node goal)
 	{
 		List<Node> path = new List<Node> ();
 		path.Add (goal);
@@ -152,18 +110,8 @@ public class Pathfinding : MonoBehaviour
 			path.Add (itr.parent);
 			itr = itr.parent;
 		}
+		path.Add (start);
+
 		return path;
-	}
-	
-	// Use this for initialization
-	void Start ()
-	{
-		
-	}
-	
-	// Update is called once per frame
-	void Update ()
-	{
-		
 	}
 }

@@ -3,10 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using System.Linq;
 
 public class PathfindingThread
 {
 	public List<Node> partialPath;
+	public List<Node> finalPath;
 
 	public bool done = false;
 	public int id;
@@ -66,28 +68,43 @@ public class PathfindingThread
 			current.isInClosedSet = true;
 			
 			// if its the goal, return
-			if (current == goal || endNode != null){
-//				while(brotherThread.endNode==null){
-//				}
-
-//				if(id == 1){
-//					if(endNode != brotherThread.touchedNode)
-//						endNode = brotherThread.touchedNode;
-//				}
-
-				if (endNode != null){
-					partialPath = Reconstruct_path (start, endNode);
-					done = true;
-					return;
+			if (endNode != null){
+				while(brotherThread.endNode==null){
 				}
 
-				partialPath = Reconstruct_path (start, goal);
+				if(id == 1){
+					if(endNode != brotherThread.touchedNode){
+
+						List<Node> brotherPath1 = Reconstruct_path (brotherThread.start, touchedNode);
+						List<Node> brotherPath2 = Reconstruct_path (brotherThread.start, brotherThread.endNode);
+
+						List<Node> myPath1 = Reconstruct_path (start, endNode);
+						List<Node> myPath2 = Reconstruct_path (start, brotherThread.touchedNode);
+
+						int possiblePath1Len = brotherPath1.Count + myPath1.Count;
+						int possiblePath2Len = brotherPath2.Count + myPath2.Count;
+
+						if(possiblePath1Len <= possiblePath2Len){
+							brotherPath1.Reverse();
+							finalPath = brotherPath1.Concat(myPath1).ToList();
+						}else{
+							brotherPath2.Reverse();
+							finalPath = brotherPath2.Concat(myPath2).ToList();
+						}
+					}else{
+						List<Node> brotherPath = Reconstruct_path (brotherThread.start, brotherThread.endNode);
+						List<Node> myPath = Reconstruct_path (start, endNode);
+
+						brotherPath.Reverse();
+						finalPath = brotherPath.Concat(myPath).ToList();
+					}
+				}
 				done = true;
 				return;
 			}
 
 			AstarNodeExpansion(openSet, current, current.getCloseNeighbors(), 1);
-			AstarNodeExpansion(openSet, current, current.getDiagnalNeighbors(), (float)Math.Sqrt(2));
+			//AstarNodeExpansion(openSet, current, current.getDiagnalNeighbors(), (float)Math.Sqrt(2));
 
 			
 		}
@@ -138,21 +155,21 @@ public class PathfindingThread
 		}
 	}
 	
-	public float Heuristic_cost_estimate (Node start, Node goal)
+	public float Heuristic_cost_estimate (Node goal, Node current)
 	{
-		float xComponent = Math.Abs ((start.listIndex.x+1) - (goal.listIndex.x+1));
-		float zComponent = Math.Abs ((start.listIndex.z+1) - (goal.listIndex.z+1));
 		
-		float min = Math.Min (xComponent, zComponent);
-		float max = Math.Max (xComponent, zComponent);
+		float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
+		float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
+		//float dx2 = (start.listIndex.x+1) - (goal.listIndex.x+1);
+		//float dy2 = (start.listIndex.z+1) - (goal.listIndex.z+1);
+		//float cross = Math.Abs(dx1*dy2 - dx2*dy1);
 		
-		return (float)Math.Sqrt(min)* (float)Math.Sqrt(2)  + (max - min);
+		//float min = Math.Min (dx1, dy1);
+		//float max = Math.Max (dx1, dy1);
 		
-		float hyp = (float)Math.Sqrt (Math.Pow (xComponent, 2) + Math.Pow (zComponent, 2));
+		//return (float)Math.Sqrt(min)*1.4f  + (max - min) ;
 		
-		//return hyp * .9f;  // Euclidian
-		
-		//return ((xComponent + zComponent) * .7);  // Manhattan
+		return ((dx1 + dy1) * .85f) ;  // Manhattan
 	}
 	
 	
@@ -171,6 +188,8 @@ public class PathfindingThread
 			path.Add (itr.parent);
 			itr = itr.parent;
 		}
+		path.Add (start);
+
 		return path;
 	}
 }

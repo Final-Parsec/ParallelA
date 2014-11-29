@@ -51,7 +51,6 @@
      <Compile Include="Assets\scripts\Map.cs" />
      <Compile Include="Assets\scripts\MinHeap.cs" />
      <Compile Include="Assets\scripts\Node.cs" />
-     <Compile Include="Assets\scripts\ObjectManager.cs" />
      <Compile Include="Assets\scripts\Pathfinding.cs" />
      <Compile Include="Assets\scripts\PathfindingThread.cs" />
   </ItemGroup>

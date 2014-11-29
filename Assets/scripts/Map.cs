@@ -25,8 +25,8 @@ public class Map : MonoBehaviour
 
 	// A*
 	public List<Node> sequentialAPath;
-	public List<Node> biAPath;
-	private LineRenderer lineRenderer;
+	private LineRenderer biALineRenderer;
+	private LineRenderer seqALineRenderer;
 
 	// BI A*
 	PathfindingThread pathThreadStart;
@@ -39,13 +39,12 @@ public class Map : MonoBehaviour
 	public int size_z;
 	private Vector2 nodeSize;
 	public Node[,] nodes;
-	private ObjectManager _ObjectManager;
 
 	void Awake()
 	{
 
-		lineRenderer = GetComponent<LineRenderer>();
-		_ObjectManager = ObjectManager.GetInstance ();
+		biALineRenderer = GetComponent<LineRenderer>();
+		seqALineRenderer = GameObject.Find ("SeqALR").GetComponent<LineRenderer>();
 		nodes = new Node[size_x, size_z];
 
 		BuildNodes ();
@@ -68,7 +67,7 @@ public class Map : MonoBehaviour
 	{
 		stopWatch.Start();
 
-		sequentialAPath = _ObjectManager.Pathfinding.Astar (spawnNode, destinationNode);
+		sequentialAPath = Pathfinding.Astar (spawnNode, destinationNode);
 
 		stopWatch.Stop();
 		TimeSpan ts = stopWatch.Elapsed;
@@ -76,11 +75,14 @@ public class Map : MonoBehaviour
 		                                   ts.Hours, ts.Minutes, ts.Seconds,
 		                                   ts.Milliseconds / 10);
 		stopWatch.Reset();
-		UnityEngine.Debug.Log ("Done Sequential A*: "+ elapsedTime + " Len: "+sequentialAPath.Count());
+		if(sequentialAPath != null){
+			UnityEngine.Debug.Log ("Done Sequential A*: "+ elapsedTime + " Len: "+sequentialAPath.Count());
+			DrawPath(sequentialAPath, seqALineRenderer);
+		}
 
 		if(!onlySequentialA){
 			//clear from last run
-			_ObjectManager.Pathfinding.InitMap();
+			InitMap();
 				
 
 			pathThreadStart = new PathfindingThread(1);
@@ -102,14 +104,10 @@ public class Map : MonoBehaviour
 			                                   ts.Milliseconds / 10);
 			stopWatch.Reset();
 
-			if(pathThreadGoal.partialPath != null && pathThreadStart.partialPath != null){
-				pathThreadGoal.partialPath.Reverse();
-				biAPath = pathThreadGoal.partialPath.Concat(pathThreadStart.partialPath).ToList();
-				UnityEngine.Debug.Log ("Done Bidirectional A*: "+ elapsedTime + " Len: "+biAPath.Count());
-				DrawPath (biAPath);
+			if(pathThreadStart.finalPath != null){
+				UnityEngine.Debug.Log ("Done Bidirectional A*: "+ elapsedTime + " Len: "+pathThreadStart.finalPath.Count());
+				DrawPath (pathThreadStart.finalPath, biALineRenderer);
 			}
-		} else{
-			DrawPath(sequentialAPath);
 		}
 
 
@@ -201,7 +199,7 @@ public class Map : MonoBehaviour
 		}
 	}
 
-	public void DrawPath(List<Node> path){
+	public void DrawPath(List<Node> path, LineRenderer lineRenderer){
 
 		if(path == null)
 			return;
@@ -330,6 +328,19 @@ public class Map : MonoBehaviour
 				if (z + 1 < nodes.GetLength (1))
 					nodes [x, z].borderTiles [(int)Border.upRight] = nodes [x, z + 1];
 			}
+		}
+	}
+
+	public void InitMap()
+	{
+		// initialize pathfinding variables
+		foreach (Node node in nodes) {
+			node.gScore = int.MaxValue;
+			node.fScore = int.MaxValue;
+			node.parent = null;
+			node.isInOpenSet = false;
+			node.isInClosedSet = false;
+			node.checkedByThread = 0;
 		}
 	}
 }
