@@ -19,7 +19,7 @@ public class PathfindingThread
 	public Node touchedNode = null;
 	public PathfindingThread brotherThread;
 
-
+	private const float HEURISTIC_MULTIPLIER = .85f;
 
 	public PathfindingThread(int id)
 	{
@@ -155,11 +155,11 @@ public class PathfindingThread
 		}
 	}
 	
-	public float Heuristic_cost_estimate (Node goal, Node current)
-	{
+	//public float Heuristic_cost_estimate (Node goal, Node current)
+	//{
 		
-		float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
-		float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
+		//float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
+		//float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
 		//float dx2 = (start.listIndex.x+1) - (goal.listIndex.x+1);
 		//float dy2 = (start.listIndex.z+1) - (goal.listIndex.z+1);
 		//float cross = Math.Abs(dx1*dy2 - dx2*dy1);
@@ -169,9 +169,17 @@ public class PathfindingThread
 		
 		//return (float)Math.Sqrt(min)*1.4f  + (max - min) ;
 		
-		return ((dx1 + dy1) * .85f) ;  // Manhattan
-	}
+		//return ((dx1 + dy1) * .85f) ;  // Manhattan
+	//}
 	
+	public float Heuristic_cost_estimate(Node goal, Node current)
+	{
+		// Manhattan
+		return HEURISTIC_MULTIPLIER * (Math.Abs (current.listIndex.x - goal.listIndex.x) + Math.Abs (current.listIndex.z - goal.listIndex.z));
+
+		// Euclidean
+		//return HEURISTIC_MULTIPLIER * (float)Math.Sqrt(Math.Pow((current.listIndex.x - goal.listIndex.x) , 2) + (float)Math.Pow((current.listIndex.z - goal.listIndex.z), 2));
+	}
 	
 	/// <summary>
 	/// Reconstruct_path the specified start and goal.
