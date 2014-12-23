@@ -1,102 +1,153 @@
-/// Minimal generic min heap and priority queue implementation in C#, in less than 100 lines of code
-
-using System;
 using System.Collections.Generic;
+using System;
 
-class MinHeap<T> where T : IComparable<T>
+public class MinHeap
 {
-	private List<T> array = new List<T>();
+	//The heap is treated like it is 1 based not 0
+	public List<Node> heap;
+	private object threadId;
 	
-	public void Add(T element)
+	public MinHeap (Node root)
 	{
-		array.Add(element);
-		int c = array.Count - 1;
-		while (c > 0 && array[c].CompareTo(array[c / 2]) == -1)
-		{
-			T tmp = array[c];
-			array[c] = array[c / 2];
-			array[c / 2] = tmp;
-			c = c / 2;
+		threadId = null;
+		heap = new List<Node> ();
+		heap.Add (root);
+	}
+
+	public MinHeap (Node root, int threadId)
+	{
+		this.threadId = threadId;
+		heap = new List<Node> ();
+		heap.Add (root);
+	}
+	
+	/// <summary>
+	/// Gets the root.
+	/// </summary>
+	/// <returns>The root.</returns>
+	public Node GetRoot ()
+	{
+		Node root = heap [0];
+		heap [0] = heap [heap.Count - 1];
+		heap.RemoveAt (heap.Count - 1);
+		MinHeapify (0);
+		return root;
+	}
+
+	
+	/// <summary>
+	/// Adds an element to the heap and bubbles up.
+	/// </summary>
+	/// <param name="element">element to add</param>
+	public void Add (Node element)
+	{
+		heap.Add (element); 
+		BubbleUp(heap.Count - 1);
+	}
+
+	private void BubbleUp(int index)
+	{
+		if (index >= heap.Count)
+			return;
+
+		int child = index;
+		while (child > 0) {
+			
+			int parent = (child + 1) / 2 - 1;
+
+			if(threadId==null)
+			{
+				if (heap[parent].CompareTo(heap[child]) < 0)
+					break;
+			}
+			else
+			{
+				if (heap[parent].CompareTo(heap[child], (int)threadId) < 0)
+					break;
+			}
+			
+			Swap (parent, child);
+			
+			child = parent;
 		}
 	}
 	
-	public T RemoveMin()
+	/// <summary>
+	/// Mins the heapify.
+	/// </summary>
+	/// <param name="index">Index.</param>
+	public void MinHeapify (int index)
 	{
-		T ret = array[0];
-		array[0] = array[array.Count - 1];
-		array.RemoveAt(array.Count - 1);
-		
-		int c = 0;
-		while (c < array.Count)
+		int left = 2 * (index+1) - 1;
+		int right = 2 * (index+1) - 1 + 1;
+		int smallest;
+
+
+		if(threadId==null)
 		{
-			int min = c;
-			if (2 * c + 1 < array.Count && array[2 * c + 1].CompareTo(array[min]) == -1)
-				min = 2 * c + 1;
-			if (2 * c + 2 < array.Count && array[2 * c + 2].CompareTo(array[min]) == -1)
-				min = 2 * c + 2;
-			
-			if (min == c)
-				break;
+			if (left < heap.Count && heap [left].CompareTo(heap [index]) < 0)
+				smallest = left;
 			else
-			{
-				T tmp = array[c];
-				array[c] = array[min];
-				array[min] = tmp;
-				c = min;
+				smallest = index;
+			
+			if (right < heap.Count && heap [right].CompareTo(heap [smallest]) < 0)
+				smallest = right;
+			
+			if (smallest != index) {
+				Swap (index, smallest);
+				MinHeapify (smallest);
+			}
+		}
+		else
+		{
+			if (left < heap.Count && heap [left].CompareTo(heap [index], (int)threadId) < 0)
+				smallest = left;
+			else
+				smallest = index;
+			
+			if (right < heap.Count && heap [right].CompareTo(heap [smallest], (int)threadId) < 0)
+				smallest = right;
+			
+			if (smallest != index) {
+				Swap (index, smallest);
+				MinHeapify (smallest);
 			}
 		}
 		
-		return ret;
+		
+
 	}
 	
-	public T Peek()
+	/// <summary>
+	/// Swap the specified list items, a and b.
+	/// </summary>
+	/// <param name="a">The alpha component.</param>
+	/// <param name="b">The beta component.</param>
+	private void Swap (int a, int b)
 	{
-		return array[0];
+		Node temp = heap [a];
+		heap [a] = heap [b];
+		heap [b] = temp;
 	}
-	
-	public int Count
+
+	public void Reevaluate(Node element)
 	{
-		get
-		{
-			return array.Count;
-		}
+		int index = heap.IndexOf(element);
+
+		BubbleUp(index);
+	}
+
+	public Node Peek()
+	{
+		if (heap.Count <= 0)
+			return null;
+
+		return heap[0];
+	}
+
+	public int Count()
+	{
+		return heap.Count;
 	}
 }
 
-class PriorityQueue<T>
-{
-	internal class HeapNode : IComparable<HeapNode>
-	{
-		public int Priority;
-		public T O;
-		public int CompareTo(HeapNode other)
-		{
-			return Priority.CompareTo(other.Priority);
-		}
-	}
-	
-	private MinHeap<HeapNode> minHeap = new MinHeap<HeapNode>();
-	
-	public void Add(int priority, T element)
-	{
-		minHeap.Add(new HeapNode() { Priority = priority, O = element });
-	}
-	
-	public T RemoveMin()
-	{
-		return minHeap.RemoveMin().O;
-	}
-	
-	public T Peek()
-	{
-		return minHeap.Peek().O;
-	}
-	
-	public int Count
-	{
-		get
-		{
-			return minHeap.Count;
-		}
-	}
-}

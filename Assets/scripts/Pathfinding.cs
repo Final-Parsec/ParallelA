@@ -1,97 +1,187 @@
-using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using UnityEngine;
 
 public class Pathfinding
 {
 	public List<Node> pathToDestination = null;
+	public Thread thread;
+	public bool done = false;
 
-	public static List<Node> Astar (Node start, Node goal)
+	//Tracing
+	int goBackToStep;
+	private int GoBackToStep
 	{
-		if (start == null || goal == null)
-			return null;
+		set
+		{
+			goBackToStep = value;
+			if( goBackToStep <= 0)
+				goBackToStep = 0;
+		}
+	}
+	public bool goBack = false;
+	private Node start, goal;
+
+	public Pathfinding(Node start, Node goal)
+	{
+		this.start = start;
+		this.goal = goal;
+	}
+
+	public void MakeThread()
+	{
+		ThreadStart startT = new ThreadStart(Astar);
+		thread = new Thread(startT);
+		//thread.Priority = ThreadPriority.Highest;
+		thread.Start();
+	}
+
+	public void Astar ()
+	{
+		if (start == null || goal == null){
+			done = true;
+			return;
+		}
 		
 		if (start == goal)
 		{
-			return new List<Node>()
-			{
-				start
-			};
+			done = true;
+			return;
 		}
-		
-		// initialize pathfinding variables
-		//		foreach (Node node in _ObjectManager.Map.nodes) {
-		//			node.gScore = float.MaxValue;
-		//			node.fScore = float.MaxValue;
-		//			node.parent = null;
-		//			node.isInOpenSet = false;
-		//			node.isInClosedSet = false;
-		//		}
-		
-		MinHeap<Node> openSet = new MinHeap<Node>();
-		openSet.Add(start);
+
+		MinHeap openSet = new MinHeap(start);
 		start.isInOpenSet = true;
 		
 		start.gScore = 0;
-		start.fScore = start.gScore + Heuristic_cost_estimate (start, goal, start);
+		start.fScore = start.gScore + Heuristic_cost_estimate (goal, start);
 		
-		
-		
-		while (openSet.Count > 0) {
-			// get closest node
-			Node current = openSet.RemoveMin ();
-			if (current == goal)
-				return Reconstruct_path (start, goal);
+		int numSteps = 0;
+		Node current = null;
+		while (openSet.Count() > 0) {
+
+			current = openSet.GetRoot ();
+
+			current.isCurrent = true;
 			current.isInOpenSet = false;
 			current.isInClosedSet = true;
 
-			AstarNodeExpansion(start, goal, openSet, current, current.getCloseNeighbors(), 1f);
-			//AstarNodeExpansion(start, goal, openSet, current, current.getDiagnalNeighbors(), (float)Math.Sqrt(2));
-			
+			ControlLogic(current, numSteps);
+			numSteps++;
+			current.isCurrent = false;
+
+			if(openSet.Count() > 0 && current.fScore>openSet.Peek().fScore)
+				Debug.Log("shits broke yo");
+
+			if (current == goal)
+			{
+				pathToDestination = Reconstruct_path (start, goal);
+				done = true;
+				return;
+			}
+
+			foreach (Node neighbor in current.borderTiles) {
+				if(neighbor == null || !neighbor.isWalkable || neighbor.isInClosedSet)
+					continue;
+				
+				// if the new gscore is lower replace it
+				int tentativeGscore = current.gScore + Heuristic_cost_estimate (current, neighbor);
+				
+				if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
+					
+					neighbor.parent = current;
+					neighbor.gScore = tentativeGscore;
+					neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (goal, neighbor);
+					
+					if (!neighbor.isInOpenSet){
+						openSet.Add (neighbor);
+						neighbor.isInOpenSet = true;
+					}
+					else
+					{
+						openSet.Reevaluate(neighbor);
+					}
+				}
+			}
 		}
 		// Fail
-		return null;
+		done = true;
+		return;
 	}
 
-	private static void AstarNodeExpansion(Node start, Node goal, MinHeap<Node> openSet, Node current, Node[] neighbors, float cost){
+	private void AstarNodeExpansion(Node start, Node goal, MinHeap openSet, Node current, Node[] neighbors, int cost){
 		
 		foreach (Node neighbor in neighbors) {
-			if(neighbor == null || !neighbor.isWalkable)
+			if(neighbor == null || !neighbor.isWalkable || neighbor.isInClosedSet)
 				continue;
 
 			// if the new gscore is lower replace it
-			float tentativeGscore = current.gScore + cost;
-			if (!neighbor.isInOpenSet && tentativeGscore < neighbor.gScore) {
+			int tentativeGscore = current.gScore + cost;
+
+			if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
 				
 				neighbor.parent = current;
 				neighbor.gScore = tentativeGscore;
-				neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (start, goal, neighbor);
+				neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (goal, neighbor);
 
 				if (!neighbor.isInOpenSet){
 					openSet.Add (neighbor);
 					neighbor.isInOpenSet = true;
-					neighbor.isInClosedSet = false;
+				}
+				else
+				{
+					openSet.Reevaluate(neighbor);
 				}
 			}
 		}
+
 	}
 
-	public static float Heuristic_cost_estimate (Node start, Node goal, Node current)
+	private void ControlLogic(Node current, int numSteps)
+	{
+		if(Map.map.TraceThroughOn && Map.map.ContinueToSelectedNode && current == Map.map.selectedNode){
+			Map.map.ContinueToSelectedNode = false;
+		}
+		//Wait for user to hit step if in step through mode
+		while(Map.map.TraceThroughOn && !Map.map.StepForward && !Map.map.exiting)
+		{
+			if(goBack)
+			{
+				if(numSteps == goBackToStep)
+				{
+					goBack = false;
+				}
+				break;
+			}
+			else if(Map.map.StepBack )
+			{
+				current.isCurrent = false;
+				Map.map.StepBack = false;
+				goBack = true;
+				GoBackToStep = numSteps-2;
+				
+				Map.map.InitMap();
+				Astar();
+				return;
+			}
+			
+			if(Map.map.ContinueToSelectedNode && Map.map.selectedNode != null && Map.map.selectedNode.isWalkable)
+				break;
+		}
+		Map.map.StepForward = false;
+	}
+
+	public int Heuristic_cost_estimate (Node goal, Node current)
 	{
 
-		float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
-		float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
-		//float dx2 = (start.listIndex.x+1) - (goal.listIndex.x+1);
-		//float dy2 = (start.listIndex.z+1) - (goal.listIndex.z+1);
-		//float cross = Math.Abs(dx1*dy2 - dx2*dy1);
+		int dx1 = (int)Math.Abs((current.listIndex.x) - (goal.listIndex.x));
+		int dy1 = (int)Math.Abs((current.listIndex.z) - (goal.listIndex.z));
 
-		//float min = Math.Min (dx1, dy1);
-		//float max = Math.Max (dx1, dy1);
-
-		//return (float)Math.Sqrt(min)*1.4f  + (max - min) ;
-		
-		return ((dx1 + dy1) * .8f);  // Manhattan
+		if (dx1 > dy1)
+			return 14*dy1 + 10*(dx1-dy1);
+		else
+			return 14*dx1 + 10*(dy1-dx1);
 	}
 	
 	
@@ -100,7 +190,7 @@ public class Pathfinding
 	/// </summary>
 	/// <param name="start">Start.</param>
 	/// <param name="goal">Goal.</param>
-	private static List<Node> Reconstruct_path (Node start, Node goal)
+	public static List<Node> Reconstruct_path (Node start, Node goal)
 	{
 		List<Node> path = new List<Node> ();
 		path.Add (goal);

@@ -1,203 +1,198 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-using UnityEngine;
 using System.Linq;
+using UnityEngine;
 
 public class PathfindingThread
 {
-	public List<Node> partialPath;
-	public List<Node> finalPath;
-
-	public bool done = false;
-	public int id;
-
-	private Node start;
-	private Node goal;
-	public Node endNode = null;
-	public Node touchedNode = null;
-	public PathfindingThread brotherThread;
-
-	private const float HEURISTIC_MULTIPLIER = .85f;
-
-	public PathfindingThread(int id)
+	public static bool finished = false;
+	public static System.Object L = int.MaxValue;
+	public static int[] threadIds = new int[]
 	{
-		this.id = id;
+		1,2
+	};
+	
+	public int id;
+	public Node start;
+	private Node goal;
+	public int F = 0;
+	public Node endNode = null;
+	public PathfindingThread brotherThread;
+	public Thread thread;
 
+	//Tracing
+	bool goBack;
+	int goBackToStep;
+	private int GoBackToStep
+	{
+		set
+		{
+			goBackToStep = value;
+			if( goBackToStep <= 0)
+				goBackToStep = 0;
+		}
+		get
+		{
+			return goBackToStep;
+		}
 	}
 
-	public void MakeThread(Node start, Node goal)
+	public PathfindingThread(Node start, Node goal)
 	{
 		this.start = start;
 		this.goal = goal;
+		
+	}
+	
+	public void MakeThread(int id)
+	{
+		this.id = id;
+		ThreadStart startT;
+		startT = new ThreadStart(Astar);
 
-		ThreadStart startT = new ThreadStart(Astar);
-		Thread thread = new Thread(startT);
+		thread = new Thread(startT);
+		thread.Priority = System.Threading.ThreadPriority.Highest;
 		thread.Start();
 	}
 
-	private void Astar ()
+	private void Astar()
 	{
-		if (start == null || goal == null){
-			partialPath = null;
-			return;
-		}
-		
-		if (start == goal)
-		{
-			partialPath = new List<Node>()
-			{
-				start
-			};
-			return;
-		}
-
-		start.checkedByThread = id;
-		MinHeap<Node> openSet = new MinHeap<Node>();
+		start.isInOpenSetOfThread[id] = true;
+		MinHeap openSet = new MinHeap(start, id);
 		openSet.Add(start);
-		start.isInOpenSet = true;
+
 		
-		start.gScore = 0;
-		start.fScore = start.gScore + Heuristic_cost_estimate (start, goal);
-		
-		while (openSet.Count > 0) {
-			// get closest node
-			Node current = openSet.RemoveMin ();
-			current.isInOpenSet = false;
+		start.gScores[id] = 0;
+		start.fScores[id] = start.gScores[id] + Heuristic_cost_estimate (goal, start);
+
+		int numSteps = 0;
+		while(!finished)
+		{
+			Node current = openSet.GetRoot ();
+			current.isInOpenSetOfThread[id] = false;
 			current.isInClosedSet = true;
+
+			current.isCurrent = true;
+			ControlLogic(current, numSteps);
+			numSteps++;
+			current.isCurrent = false;
 			
-			// if its the goal, return
-			if (endNode != null){
-				while(brotherThread.endNode==null){
-				}
+			if(current.checkedByThread == 0)
+			{
+				//TODO use huristic of brother
+				if(current.fScores[id] < (int)L && current.gScores[id] + brotherThread.F - brotherThread.Heuristic_cost_estimate(start, current) < (int)L)
+				{
+					foreach(Node neighbor in current.borderTiles){
+						if(neighbor != null && neighbor.isWalkable)
+						{
+							int cost = Heuristic_cost_estimate(current, neighbor);
+							if(neighbor.checkedByThread == 0 && neighbor.gScores[id] > current.gScores[id] + cost)
+							{
 
-				if(id == 1){
-					if(endNode != brotherThread.touchedNode){
-
-						List<Node> brotherPath1 = Reconstruct_path (brotherThread.start, touchedNode);
-						List<Node> brotherPath2 = Reconstruct_path (brotherThread.start, brotherThread.endNode);
-
-						List<Node> myPath1 = Reconstruct_path (start, endNode);
-						List<Node> myPath2 = Reconstruct_path (start, brotherThread.touchedNode);
-
-						int possiblePath1Len = brotherPath1.Count + myPath1.Count;
-						int possiblePath2Len = brotherPath2.Count + myPath2.Count;
-
-						if(possiblePath1Len <= possiblePath2Len){
-							brotherPath1.Reverse();
-							finalPath = brotherPath1.Concat(myPath1).ToList();
-						}else{
-							brotherPath2.Reverse();
-							finalPath = brotherPath2.Concat(myPath2).ToList();
+								neighbor.gScores[id] = current.gScores[id] + cost;
+								neighbor.fScores[id] = neighbor.gScores[id] + Heuristic_cost_estimate(goal, neighbor);
+								neighbor.parents[id] = current;
+								if(!neighbor.isInOpenSetOfThread[id])
+								{
+									neighbor.isInOpenSetOfThread[id] = true;
+									openSet.Add(neighbor);
+								}
+								else{
+									openSet.Reevaluate(neighbor);
+								}
+								if(neighbor.gScores[brotherThread.id] != int.MaxValue && neighbor.gScores[brotherThread.id]+ neighbor.gScores[id]< (int)L)
+								{
+									lock(L)
+									{
+										if(neighbor.gScores[brotherThread.id]+ neighbor.gScores[id]< (int)L)
+										{
+											L = neighbor.gScores[brotherThread.id]+ neighbor.gScores[id];
+											endNode = current;
+											brotherThread.endNode = neighbor;
+										}
+									}
+								}
+							}
 						}
-					}else{
-						List<Node> brotherPath = Reconstruct_path (brotherThread.start, brotherThread.endNode);
-						List<Node> myPath = Reconstruct_path (start, endNode);
-
-						brotherPath.Reverse();
-						finalPath = brotherPath.Concat(myPath).ToList();
 					}
 				}
-				done = true;
-				return;
+				current.checkedByThread = id;
 			}
 
-			AstarNodeExpansion(openSet, current, current.getCloseNeighbors(), 1);
-			//AstarNodeExpansion(openSet, current, current.getDiagnalNeighbors(), (float)Math.Sqrt(2));
-
-			
+			if(openSet.Count() > 0)
+			{
+				F = openSet.Peek().fScores[id];
+			}
+			else
+			{
+				finished = true;
+			}
 		}
-		done = true;
-		partialPath = null;
+	}
+	
+	public int Heuristic_cost_estimate (Node goal, Node current)
+	{
+		//Chebyshev distance
+		int dx1 = (int)Math.Abs((current.listIndex.x) - (goal.listIndex.x));
+		int dy1 = (int)Math.Abs((current.listIndex.z) - (goal.listIndex.z));
+		
+		if (dx1 > dy1)
+			return 14*dy1 + 10*(dx1-dy1);
+		else
+			return 14*dx1 + 10*(dy1-dx1);
 	}
 
-	private void AstarNodeExpansion(MinHeap<Node> openSet, Node current, Node[] neighbors, float cost){
-
-		foreach (Node neighbor in neighbors) {
-			if(neighbor == null || neighbor.isInClosedSet || !neighbor.isWalkable)
-				continue;
-			
-//			if(endNode != null)
-//				break;
-//			
-//			if (brotherThread.endNode != null){
-//				endNode = brotherThread.touchedNode;
-//				break;
-//			}
-//			
-			if(neighbor.checkedByThread != 0 && neighbor.checkedByThread != id){
-				endNode = current;
-				touchedNode = neighbor;
+	private void ControlLogic(Node current, int numSteps)
+	{
+		if(Map.map.ContinueToSelectedNode && current == Map.map.selectedNode){
+			Map.map.ContinueToSelectedNode = false;
+		}
+		//Wait for user to hit step if in step through mode
+		while(Map.map.TraceThroughOn && !Map.map.StepForward && !Map.map.exiting)
+		{
+			if(goBack)
+			{
+				if(numSteps == GoBackToStep)
+				{
+					goBack = false;
+				}
 				break;
 			}
-			
-//			float gScoreHolder = current.gScore;
-//			if(neighbor.checkedByThread != 0 && neighbor.checkedByThread != id){
-//				gScoreHolder = int.MaxValue;
-//			}
-			// if the new gscore is lower replace it
-			float tentativeGscore = current.gScore + cost;
-			if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
+			else if(Map.map.StepBack)
+			{
+				Map.map.StepBack = false;
+				goBack = true;
+				GoBackToStep = numSteps-2;
 				
-				neighbor.parent = current;
-				neighbor.gScore = tentativeGscore;
-				neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (neighbor, goal);
-				
-				// if neighbor's not in the open set add it
-				if (!neighbor.isInOpenSet) {
-					neighbor.checkedByThread = id;
-					openSet.Add (neighbor);
-					neighbor.isInOpenSet = true;
-					neighbor.isInClosedSet = false;
-				}
+				Map.map.InitMap();
+				Astar();
+				return;
 			}
+			
+			if(Map.map.ContinueToSelectedNode && Map.map.selectedNode != null && Map.map.selectedNode.isWalkable && !Map.map.selectedNode.isInClosedSet)
+				break;
 		}
+		Map.map.StepForward = false;
 	}
-	
-	//public float Heuristic_cost_estimate (Node goal, Node current)
-	//{
-		
-		//float dx1 = Math.Abs((current.listIndex.x+1) - (goal.listIndex.x+1));
-		//float dy1 = Math.Abs((current.listIndex.z+1) - (goal.listIndex.z+1));
-		//float dx2 = (start.listIndex.x+1) - (goal.listIndex.x+1);
-		//float dy2 = (start.listIndex.z+1) - (goal.listIndex.z+1);
-		//float cross = Math.Abs(dx1*dy2 - dx2*dy1);
-		
-		//float min = Math.Min (dx1, dy1);
-		//float max = Math.Max (dx1, dy1);
-		
-		//return (float)Math.Sqrt(min)*1.4f  + (max - min) ;
-		
-		//return ((dx1 + dy1) * .85f) ;  // Manhattan
-	//}
-	
-	public float Heuristic_cost_estimate(Node goal, Node current)
-	{
-		// Manhattan
-		return HEURISTIC_MULTIPLIER * (Math.Abs (current.listIndex.x - goal.listIndex.x) + Math.Abs (current.listIndex.z - goal.listIndex.z));
 
-		// Euclidean
-		//return HEURISTIC_MULTIPLIER * (float)Math.Sqrt(Math.Pow((current.listIndex.x - goal.listIndex.x) , 2) + (float)Math.Pow((current.listIndex.z - goal.listIndex.z), 2));
-	}
-	
-	/// <summary>
-	/// Reconstruct_path the specified start and goal.
-	/// </summary>
-	/// <param name="start">Start.</param>
-	/// <param name="goal">Goal.</param>
-	private List<Node> Reconstruct_path (Node start, Node goal)
+	public List<Node> Reconstruct_path (Node start, Node goal)
 	{
 		List<Node> path = new List<Node> ();
 		path.Add (goal);
 		
 		Node itr = goal;
-		while (itr.parent != start) {
-			path.Add (itr.parent);
-			itr = itr.parent;
+
+		while (itr.parents[id] != start) {
+			if(itr.parents[id] == null)
+				break;
+
+			path.Add (itr.parents[id]);
+			itr = itr.parents[id];
 		}
 		path.Add (start);
-
+		
 		return path;
 	}
 }

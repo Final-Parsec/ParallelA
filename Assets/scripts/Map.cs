@@ -9,30 +9,80 @@ using System.Diagnostics;
 public class Map : MonoBehaviour
 {
 
-	// Prefabs, GameObjects, and Texturess
+	public static Map map;
+
+	// Prefabs, GameObjects, and Textures
 	public GameObject obstacle;
+	public GameObject nodeVisual;
 	public Transform left;
 	public Transform right;
 	public Transform enemySpawnTransform;
 	public Transform destinationTransform;
 	public Node destinationNode;
 	public Node spawnNode;
-	public bool visualsOn;
-	public bool onlySequentialA;
-	public bool disableMaze;
+	private bool traceThroughOn = false;
+	public bool TraceThroughOn
+	{ get
+		{
+			return traceThroughOn;
+		}
+		set
+		{
+			if(value)
+				traceThroughOn = !traceThroughOn;
+		}
+	}
+	public bool StepForward{ get; set; }
+	public bool StepBack{ get; set; }
+	public bool ContinueToSelectedNode{ get; set; }
+	public bool Repeat{ get; set; }
+	public bool VisualsOn{ get; set; }
+	private bool runSequentialAStar = true;
+	public bool RunSequentialAStar
+	{ get
+		{
+			return runSequentialAStar;
+		}
+		set
+		{
+			if(value)
+				runSequentialAStar = !runSequentialAStar;
+			else
+				runSequentialAStar = false;
+		}
+	}
+	private bool runBidirectionalAStar = false;
+	public bool RunBidirectionalAStar
+	{ get
+		{
+			return runBidirectionalAStar;
+		}
+		set
+		{
+			if(value)
+				runBidirectionalAStar = !runBidirectionalAStar;
+			else
+				runBidirectionalAStar = false;
+		}
+	}
+	public bool DisableMaze{ get; set; }
+	public bool GenerateNewMap{ get; set; }
 	public int datGap;
 	public int numDoors;
 
+	private bool moveBack;
+	public Node selectedNode;
+
 	// A*
 	public List<Node> sequentialAPath;
-	private LineRenderer biALineRenderer;
-	private LineRenderer seqALineRenderer;
+	private LineRenderer lineRenderer;
+	Pathfinding sequentialA;
 
 	// BI A*
-	PathfindingThread pathThreadStart;
-	PathfindingThread pathThreadGoal;
-
-	private Stopwatch stopWatch = new Stopwatch();
+	PathfindingThread bidirectionalStart;
+	PathfindingThread bidirectionalGoal;
+	
+//	private Stopwatch stopWatch = new Stopwatch();
 
 	// Grid/Node
 	public int size_x;
@@ -40,80 +90,136 @@ public class Map : MonoBehaviour
 	private Vector2 nodeSize;
 	public Node[,] nodes;
 
+	public bool exiting = false;
+
 	void Awake()
 	{
-
-		biALineRenderer = GetComponent<LineRenderer>();
-		seqALineRenderer = GameObject.Find ("SeqALR").GetComponent<LineRenderer>();
+		map = this;
+		
+		lineRenderer = GetComponent<LineRenderer>();
 		nodes = new Node[size_x, size_z];
-
+		
 		BuildNodes ();
 		ConnectNodes ();
-
-		if(!disableMaze)
+		
+		if(!DisableMaze)
 			MakeWalls (0, size_x-1, 0, size_z-1);
-
+		
 		destinationNode = nodes[size_x - 1, 0];
-		//destinationNode = nodes[4, size_z - 1];
 		spawnNode = nodes[0, size_z - 1];
-
+		
 		destinationNode.isWalkable = true;
 		spawnNode.isWalkable = true;
-
 	}
 
 	// Use this for initialization
 	void Start ()
 	{
-		stopWatch.Start();
 
-		sequentialAPath = Pathfinding.Astar (spawnNode, destinationNode);
+		// Initial state
+		StepForward = false;
+		StepBack = false;
+		ContinueToSelectedNode = false;
+		Repeat = false;
+		VisualsOn = true;
+		DisableMaze = false;
+		GenerateNewMap = false;
+		sequentialA = new Pathfinding(spawnNode, destinationNode);
+		bidirectionalStart = new PathfindingThread(spawnNode, destinationNode);
+		bidirectionalGoal = new PathfindingThread(destinationNode, spawnNode);
+		bidirectionalStart.brotherThread = bidirectionalGoal;
+		bidirectionalGoal.brotherThread = bidirectionalStart;
 
-		stopWatch.Stop();
-		TimeSpan ts = stopWatch.Elapsed;
-		string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
-		                                   ts.Hours, ts.Minutes, ts.Seconds,
-		                                   ts.Milliseconds / 10);
-		stopWatch.Reset();
-		if(sequentialAPath != null){
-			UnityEngine.Debug.Log ("Done Sequential A*: "+ elapsedTime + " Len: "+sequentialAPath.Count());
-			DrawPath(sequentialAPath, seqALineRenderer);
+		InitMap();
+		
+		StartCoroutine (makeVisuals());
+
+		if (RunSequentialAStar)
+			StartCoroutine (RunSequentialA ());
+		else if (RunBidirectionalAStar)
+			StartCoroutine (RunBidirectionalA ());
+
+	}
+
+	void Update()
+	{
+		if(Input.GetMouseButtonUp(0))
+			selectedNode = GetNodeFromLocation(Camera.main.ScreenToWorldPoint(Input.mousePosition));
+
+		if(GenerateNewMap)
+		{
+			GenerateNewMap=false;
+
+			foreach(Node node in nodes)
+				node.isWalkable = true;
+
+			if(!DisableMaze)
+				MakeWalls (0, size_x-1, 0, size_z-1);
+
+			destinationNode = nodes[size_x - 1, 0];
+			spawnNode = nodes[0, size_z - 1];
+			
+			destinationNode.isWalkable = true;
+			spawnNode.isWalkable = true;
+
+			sequentialA = new Pathfinding(spawnNode, destinationNode);
+			bidirectionalStart = new PathfindingThread(spawnNode, destinationNode);
+			bidirectionalGoal = new PathfindingThread(destinationNode, spawnNode);
+			bidirectionalStart.brotherThread = bidirectionalGoal;
+			bidirectionalGoal.brotherThread = bidirectionalStart;
+
+			Repeat = true;
 		}
 
-		if(!onlySequentialA){
-			//clear from last run
+		if(Repeat)
+		{
+			Repeat = false;
+
+			JoinThreads();
 			InitMap();
-				
 
-			pathThreadStart = new PathfindingThread(1);
-			pathThreadGoal = new PathfindingThread(2);
-			pathThreadStart.brotherThread = pathThreadGoal;
-			pathThreadGoal.brotherThread = pathThreadStart;
+			if (RunSequentialAStar)
+				StartCoroutine (RunSequentialA ());
+			else if (RunBidirectionalAStar)
+				StartCoroutine (RunBidirectionalA ());
+		}
+	}
 
-			stopWatch.Start();
-			pathThreadGoal.MakeThread(destinationNode, spawnNode);
-			pathThreadStart.MakeThread(spawnNode, destinationNode);
-			while(!pathThreadStart.done || !pathThreadGoal.done){
+	IEnumerator RunSequentialA()
+	{
 
-			}
+		sequentialA.MakeThread();
+		while(!sequentialA.done)
+		{
+			yield return new WaitForSeconds(.00001f);
+		}
+		DrawPath( sequentialA.pathToDestination, lineRenderer);
 
-			stopWatch.Stop();
-			ts = stopWatch.Elapsed;
-			elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
-			                                   ts.Hours, ts.Minutes, ts.Seconds,
-			                                   ts.Milliseconds / 10);
-			stopWatch.Reset();
+	}
 
-			if(pathThreadStart.finalPath != null){
-				UnityEngine.Debug.Log ("Done Bidirectional A*: "+ elapsedTime + " Len: "+pathThreadStart.finalPath.Count());
-				DrawPath (pathThreadStart.finalPath, biALineRenderer);
-			}
+	IEnumerator RunBidirectionalA()
+	{
+
+		bidirectionalStart.MakeThread(PathfindingThread.threadIds[0]);
+		bidirectionalGoal.MakeThread(PathfindingThread.threadIds[1]);
+		while(!PathfindingThread.finished)
+		{
+			yield return new WaitForSeconds(.00001f);
 		}
 
-
-
-		if(visualsOn)
-			StartCoroutine (makeVisuals());
+		if(bidirectionalStart.endNode != null && bidirectionalGoal.endNode != null)
+		{
+			List<Node> fistHalf = bidirectionalStart.Reconstruct_path (spawnNode, bidirectionalStart.endNode);
+			List<Node> secondHalf = bidirectionalGoal.Reconstruct_path (destinationNode, bidirectionalGoal.endNode);
+			secondHalf.Reverse();
+			List<Node> finalPath = secondHalf.Concat(fistHalf).ToList();
+			DrawPath( finalPath, lineRenderer);
+		}
+		else
+		{
+			lineRenderer.SetVertexCount(0);
+		}
+		
 	}
 
 	IEnumerator makeVisuals()
@@ -121,33 +227,7 @@ public class Map : MonoBehaviour
 		int count = 0;
 		foreach (Node node in nodes) {
 			count++;
-
-
-			if (!node.isWalkable){
-				GameObject wall = Instantiate (obstacle, new Vector3(node.unityPosition.x, -1, node.unityPosition.z), obstacle.transform.rotation) as GameObject;
-				wall.renderer.material.color = Color.black;
-			}
-			else if(node.gScore < float.MaxValue){
-
-				if(onlySequentialA){
-					GameObject wall = Instantiate (obstacle, new Vector3(node.unityPosition.x, -1, node.unityPosition.z), obstacle.transform.rotation) as GameObject;
-					float ratio = ((float)(node.gScore)/((float)destinationNode.gScore));
-					wall.renderer.material.color = new Color(1-ratio,1,0,.5f);
-				}else{
-					if(node.checkedByThread == 1 && pathThreadGoal.endNode != null){
-						GameObject wall = Instantiate (obstacle, new Vector3(node.unityPosition.x, -1, node.unityPosition.z), obstacle.transform.rotation) as GameObject;
-						float ratio = ((float)(node.gScore)/((float)pathThreadGoal.endNode.gScore));
-						wall.renderer.material.color = new Color(1-ratio,1,0,.5f);
-					}
-					else if(node.checkedByThread == 2 && pathThreadStart.endNode != null){
-						GameObject wall = Instantiate (obstacle, new Vector3(node.unityPosition.x, -1, node.unityPosition.z), obstacle.transform.rotation) as GameObject;
-						float ratio = ((float)(node.gScore)/((float)pathThreadStart.endNode.gScore));
-						wall.renderer.material.color = new Color(.5f,.2f,1-ratio,.5f);
-					}
-				}
-			}
-			
-
+			Instantiate (nodeVisual, new Vector3(node.unityPosition.x, 1, node.unityPosition.z), nodeVisual.transform.rotation);
 			if(count> 2000){
 				yield return new WaitForSeconds(.00001f);
 				count = 0;
@@ -199,6 +279,27 @@ public class Map : MonoBehaviour
 		}
 	}
 
+	private void JoinThreads()
+	{
+		exiting = true;
+		if (sequentialA != null && sequentialA.thread != null)
+			sequentialA.thread.Join();
+		
+		if(bidirectionalStart != null && bidirectionalStart.thread != null)
+			bidirectionalStart.thread.Join();
+		if(bidirectionalGoal != null && bidirectionalGoal.thread != null)
+			bidirectionalGoal.thread.Join();
+		
+		exiting = false;
+	}
+
+	void OnApplicationQuit()
+	{
+		
+		JoinThreads();
+		map = null;
+	}
+
 	public void DrawPath(List<Node> path, LineRenderer lineRenderer){
 
 		if(path == null)
@@ -206,7 +307,10 @@ public class Map : MonoBehaviour
 
 		lineRenderer.SetVertexCount(path.Count);
 		for (int x=path.Count-1; x>=0; x--)
-			lineRenderer.SetPosition(x, path[x].unityPosition);
+		{
+			if(path[x] != null)
+				lineRenderer.SetPosition(x, new Vector3(path[x].unityPosition.x, path[x].unityPosition.y + 5, path[x].unityPosition.z));
+		}
 	}
 
 	/// <summary>
@@ -224,51 +328,6 @@ public class Map : MonoBehaviour
 
 		
 		return nodes [xIndex, zIndex];
-	}
-
-	/// <summary>
-	/// Blocks the node at the given position.
-	/// returns true if the object can be built 
-	/// else false	
-	/// </summary>
-	public bool BlockNode (Vector3 position)
-	{
-		Node node = GetNodeFromLocation (position);
-
-
-		node.isWalkable = false;
-
-		return true;
-	}
-
-	public void UnBlockNode (Vector3 position)
-	{
-		Node node = GetNodeFromLocation (position);
-
-		node.isWalkable = true;
-	}
-	
-	public void Update ()
-	{
-	}
-
-	private void SetPositions ()
-	{
-		Vector3 midLeft = new Vector3 (0, Screen.height / 2);
-		Vector3 midRight = new Vector3 (Screen.width, Screen.height / 2);
-		
-		midLeft = Camera.main.ScreenToWorldPoint (midLeft);
-		midRight = Camera.main.ScreenToWorldPoint (midRight);
-		
-		midLeft.y = 0;
-		midRight.y = 0;
-		
-		left.transform.position = midLeft;
-		right.transform.position = midRight;
-		
-		enemySpawnTransform.transform.position = midLeft;
-		destinationTransform.transform.position = midRight;
-		
 	}
 	
 	/// <summary>
@@ -341,6 +400,28 @@ public class Map : MonoBehaviour
 			node.isInOpenSet = false;
 			node.isInClosedSet = false;
 			node.checkedByThread = 0;
+			node.isCurrent = false;
+
+			foreach(int id in PathfindingThread.threadIds)
+			{
+				if(!node.gScores.ContainsKey(id))
+					node.gScores.Add(id,int.MaxValue);
+				if(!node.fScores.ContainsKey(id))
+					node.fScores.Add(id,int.MaxValue);
+				if(!node.isInOpenSetOfThread.ContainsKey(id))
+					node.isInOpenSetOfThread.Add(id, false);
+				if(!node.parents.ContainsKey(id))
+					node.parents.Add(id, null);
+
+				node.gScores[id] = int.MaxValue;
+				node.fScores[id] = int.MaxValue;
+				node.isInOpenSetOfThread[id] = false;
+				node.parents[id] = null;
+			}
+
+			PathfindingThread.finished = false;
+			PathfindingThread.L = int.MaxValue;
+
 		}
 	}
 }

@@ -9,16 +9,12 @@ namespace Zombies
 		int scrollSensitivity = 500;
 		int scrollMaxDistance = 9999;
 		int scrollMinDistance = 5;
-		int mouseBorder = 20;
 	
 		void Start() {
 		}
 				
 		// Update is called once per frame
 		void Update () {
-			float theScreenWidth = Screen.width;
-			float theScreenHeight = Screen.height;
-
 
 			float moveRate = sensitivity * Time.deltaTime;
 			float scrollRate = scrollSensitivity * Time.deltaTime;
@@ -28,16 +24,16 @@ namespace Zombies
 			float deltaZ = 0;
 
 			// Move the camera with the arrow keys or with the mouse.
-			if ( Input.GetKey(KeyCode.UpArrow) || Input.mousePosition.y > theScreenHeight - mouseBorder){
+			if ( Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)){
 					deltaY = moveRate;
 			}
-			if ( Input.GetKey(KeyCode.DownArrow) || Input.mousePosition.y < 0 + mouseBorder){
+			if ( Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)){
 					deltaY = -moveRate;
 			}
-			if ( Input.GetKey(KeyCode.RightArrow) || Input.mousePosition.x > theScreenWidth - mouseBorder){
+			if ( Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)){
 					deltaX = moveRate;
 			}
-			if ( Input.GetKey(KeyCode.LeftArrow) || Input.mousePosition.x < 0 + mouseBorder){
+			if ( Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A)){
 					deltaX = -moveRate;
 			}
 

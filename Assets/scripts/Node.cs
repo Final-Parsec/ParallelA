@@ -2,31 +2,60 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 
-public class Node : IComparable<Node>
+public class Node
 {
-	public bool isWalkable;
-
-	// Use border enum to access tiles.
+	//TODO: remove borderTiles, unityPosition, and list Index...
 	public Node[] borderTiles = new Node[8];
 	public Vector3 unityPosition;
 	public Vector3 listIndex;
 
-	// A* variables
-	public float gScore = float.MaxValue; // undefined 
-	public float fScore = float.MaxValue; // undefined 
+	// Used for stepping through the algorithms
+	public bool isCurrent;
+
+	// Only A* variables
+	public int gScore = int.MaxValue;
+	public int fScore = int.MaxValue;
 	public bool isInOpenSet = false;
-	public bool isInClosedSet = false;
 	public Node parent = null;
+
+	// Only Bidirectional A* variables
+	public Dictionary<int, int> gScores = new Dictionary<int, int>();
+	public Dictionary<int, int> fScores = new Dictionary<int, int>();
+	public Dictionary<int, bool> isInOpenSetOfThread = new Dictionary<int, bool>();
+	public Dictionary<int, Node> parents = new Dictionary<int, Node>();
 	public int checkedByThread = 0; 
 
-	public int CompareTo(Node obj) {
-		if (obj == null) return 1;
-		
-		Node node = obj as Node;
+	// Common variables for A* and Bidirectional A*
+	public bool isInClosedSet = false;
+	public bool isWalkable;
+
+
+	public int CompareTo(Node node) {
 		if (node != null) 
+		{
+
+			if(this.fScore.CompareTo(node.fScore) == 0)
+				return (this.fScore - this.gScore).CompareTo(node.fScore - node.gScore);
 			return this.fScore.CompareTo(node.fScore);
+		}
 		else 
+		{
 			throw new ArgumentException("Object is not a Node");
+		}
+	}
+
+	public int CompareTo(Node node, int threadId) {
+		if (node != null) 
+		{
+			if(this.fScores[threadId].CompareTo(node.fScores[threadId]) == 0)
+				return (this.fScores[threadId] - this.gScores[threadId]).CompareTo(node.fScores[threadId] - node.gScores[threadId]);
+			return this.fScores[threadId].CompareTo(node.fScores[threadId]);
+			
+		}
+		else 
+		{
+			throw new ArgumentException("Object is not a Node");
+		}
 	}
 	
 	public Node ()
