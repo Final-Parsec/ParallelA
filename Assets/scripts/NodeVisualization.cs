@@ -18,6 +18,15 @@ public class NodeVisualization : MonoBehaviour {
 	void Update () {
 
 		DisableEnableRenderers();
+		if(Map.map.selectedNode == onNode){
+			gScore.text = "";
+			hScore.text = "";
+			fScore.text = "";
+			color.renderer.material.color = new Color(1,.5f,.25f); // orange
+			return;
+		}
+
+
 
 		if(!onNode.isWalkable)
 		{
@@ -32,13 +41,11 @@ public class NodeVisualization : MonoBehaviour {
 
 		if(Map.map.RunSequentialAStar)
 		{
-			gScore.text = ""+onNode.gScore;
-			hScore.text = ""+(onNode.fScore-onNode.gScore);
-			fScore.text = ""+onNode.fScore;
+			gScore.text = "G:"+onNode.gScore;
+			hScore.text = "H:"+(onNode.fScore-onNode.gScore);
+			fScore.text = "F:"+onNode.fScore;
 
-			if(onNode.isCurrent)
-				color.renderer.material.color = Color.yellow;
-			else if (onNode.isInClosedSet)
+			if (onNode.isInClosedSet)
 				color.renderer.material.color = Color.red;
 			else if(onNode.isInOpenSet)
 				color.renderer.material.color = Color.magenta;
@@ -57,15 +64,13 @@ public class NodeVisualization : MonoBehaviour {
 				if(onNode.isInOpenSetOfThread[key] || (int)onNode.checkedByThread == key)
 				{
 
-					gScore.text = ""+onNode.gScores[key];
-					hScore.text = ""+(onNode.fScores[key]-onNode.gScores[key]);
-					fScore.text = ""+onNode.fScores[key];
+					gScore.text = "G:"+onNode.gScores[key];
+					hScore.text = "H:"+(onNode.fScores[key]-onNode.gScores[key]);
+					fScore.text = "F:"+onNode.fScores[key];
 
 					if(key == 1)
 					{
-						if(onNode.isCurrent)
-							color.renderer.material.color = Color.yellow;
-						else if (onNode.checkedByThread == key)
+						if (onNode.checkedByThread == key)
 							color.renderer.material.color = Color.red;
 						else if(onNode.isInOpenSetOfThread[key])
 							color.renderer.material.color = Color.magenta;
@@ -73,9 +78,7 @@ public class NodeVisualization : MonoBehaviour {
 					}
 					else
 					{
-						if(onNode.isCurrent)
-							color.renderer.material.color = Color.yellow;
-						else if (onNode.checkedByThread == key)
+						if (onNode.checkedByThread == key)
 							color.renderer.material.color = Color.green;
 						else if(onNode.isInOpenSetOfThread[key])
 							color.renderer.material.color = Color.cyan;
@@ -94,6 +97,11 @@ public class NodeVisualization : MonoBehaviour {
 
 		}
 
+		if(onNode.isCurrent){
+			color.renderer.material.color = Color.yellow;
+			return;
+		}
+
 
 	}
 
@@ -108,8 +116,7 @@ public class NodeVisualization : MonoBehaviour {
 			}
 		}
 
-
-		if(!onNode.isInOpenSet && !isInThreadOpenSet && !onNode.isInClosedSet && onNode.isWalkable && !onNode.isCurrent)
+		if(!onNode.isInOpenSet && !isInThreadOpenSet && !onNode.isInClosedSet && onNode.isWalkable && !onNode.isCurrent && !(Map.map.selectedNode == onNode))
 		{
 			gScore.renderer.enabled = false;
 			hScore.renderer.enabled = false;
@@ -124,5 +131,4 @@ public class NodeVisualization : MonoBehaviour {
 			color.renderer.enabled = true;
 		}
 	}
-
 }

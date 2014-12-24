@@ -12,7 +12,7 @@ public class Map : MonoBehaviour
 	public static Map map;
 
 	// Prefabs, GameObjects, and Textures
-	public GameObject obstacle;
+	public RectTransform UiPanel;
 	public GameObject nodeVisual;
 	public Transform left;
 	public Transform right;
@@ -143,8 +143,10 @@ public class Map : MonoBehaviour
 
 	void Update()
 	{
-		if(Input.GetMouseButtonUp(0))
+		if(Input.GetMouseButtonUp(0) && (Input.mousePosition.x > UiPanel.rect.size.x || Screen.height - Input.mousePosition.y > UiPanel.rect.size.y))
+		{
 			selectedNode = GetNodeFromLocation(Camera.main.ScreenToWorldPoint(Input.mousePosition));
+		}
 
 		if(GenerateNewMap)
 		{
@@ -214,10 +216,6 @@ public class Map : MonoBehaviour
 			secondHalf.Reverse();
 			List<Node> finalPath = secondHalf.Concat(fistHalf).ToList();
 			DrawPath( finalPath, lineRenderer);
-		}
-		else
-		{
-			lineRenderer.SetVertexCount(0);
 		}
 		
 	}
@@ -303,7 +301,10 @@ public class Map : MonoBehaviour
 	public void DrawPath(List<Node> path, LineRenderer lineRenderer){
 
 		if(path == null)
+		{
+			lineRenderer.SetVertexCount(0);
 			return;
+		}
 
 		lineRenderer.SetVertexCount(path.Count);
 		for (int x=path.Count-1; x>=0; x--)
