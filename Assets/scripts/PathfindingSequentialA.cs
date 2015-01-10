@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
-public class Pathfinding
+public class PathfindingSequentialA
 {
 	public List<Node> pathToDestination = null;
 	public Thread thread;
@@ -24,7 +24,7 @@ public class Pathfinding
 	public bool goBack = false;
 	private Node start, goal;
 
-	public Pathfinding(Node start, Node goal)
+	public PathfindingSequentialA(Node start, Node goal)
 	{
 		this.start = start;
 		this.goal = goal;
@@ -71,8 +71,6 @@ public class Pathfinding
 			numSteps++;
 			current.isCurrent = false;
 
-			if(openSet.Count() > 0 && current.fScore>openSet.Peek().fScore)
-				Debug.Log("shits broke yo");
 
 			if (current == goal)
 			{
@@ -81,7 +79,7 @@ public class Pathfinding
 				return;
 			}
 
-			foreach (Node neighbor in current.borderTiles) {
+			foreach (Node neighbor in current.getNeighbors()) {
 				if(neighbor == null || !neighbor.isWalkable || neighbor.isInClosedSet)
 					continue;
 				
@@ -110,33 +108,6 @@ public class Pathfinding
 		return;
 	}
 
-	private void AstarNodeExpansion(Node start, Node goal, MinHeap openSet, Node current, Node[] neighbors, int cost){
-		
-		foreach (Node neighbor in neighbors) {
-			if(neighbor == null || !neighbor.isWalkable || neighbor.isInClosedSet)
-				continue;
-
-			// if the new gscore is lower replace it
-			int tentativeGscore = current.gScore + cost;
-
-			if (!neighbor.isInOpenSet || tentativeGscore < neighbor.gScore) {
-				
-				neighbor.parent = current;
-				neighbor.gScore = tentativeGscore;
-				neighbor.fScore = neighbor.gScore + Heuristic_cost_estimate (goal, neighbor);
-
-				if (!neighbor.isInOpenSet){
-					openSet.Add (neighbor);
-					neighbor.isInOpenSet = true;
-				}
-				else
-				{
-					openSet.Reevaluate(neighbor);
-				}
-			}
-		}
-
-	}
 
 	private void ControlLogic(Node current, int numSteps)
 	{
@@ -175,8 +146,8 @@ public class Pathfinding
 	public int Heuristic_cost_estimate (Node goal, Node current)
 	{
 
-		int dx1 = (int)Math.Abs((current.listIndex.x) - (goal.listIndex.x));
-		int dy1 = (int)Math.Abs((current.listIndex.z) - (goal.listIndex.z));
+		int dx1 = (int)Math.Abs((current.xIndex) - (goal.xIndex));
+		int dy1 = (int)Math.Abs((current.yIndex) - (goal.yIndex));
 
 		if (dx1 > dy1)
 			return 14*dy1 + 10*(dx1-dy1);

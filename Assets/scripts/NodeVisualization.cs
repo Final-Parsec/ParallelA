@@ -59,7 +59,7 @@ public class NodeVisualization : MonoBehaviour {
 		}
 		else if(Map.map.RunBidirectionalAStar)
 		{
-			foreach(int key in PathfindingThread.threadIds)
+			foreach(int key in PathfindingBidirectionalA.threadIds)
 			{
 				if(onNode.isInOpenSetOfThread[key] || (int)onNode.checkedByThread == key)
 				{
@@ -108,7 +108,7 @@ public class NodeVisualization : MonoBehaviour {
 	public void DisableEnableRenderers()
 	{
 		bool isInThreadOpenSet = false;
-		foreach(int key in PathfindingThread.threadIds)
+		foreach(int key in PathfindingBidirectionalA.threadIds)
 		{
 			if(onNode.isInOpenSetOfThread[key])
 			{

@@ -5,7 +5,7 @@ using System.Threading;
 using System.Linq;
 using UnityEngine;
 
-public class PathfindingThread
+public class PathfindingBidirectionalA
 {
 	public static bool finished = false;
 	public static System.Object L = int.MaxValue;
@@ -19,7 +19,7 @@ public class PathfindingThread
 	private Node goal;
 	public int F = 0;
 	public Node endNode = null;
-	public PathfindingThread brotherThread;
+	public PathfindingBidirectionalA brotherThread;
 	public Thread thread;
 
 	//Tracing
@@ -39,7 +39,7 @@ public class PathfindingThread
 		}
 	}
 
-	public PathfindingThread(Node start, Node goal)
+	public PathfindingBidirectionalA(Node start, Node goal)
 	{
 		this.start = start;
 		this.goal = goal;
@@ -81,10 +81,9 @@ public class PathfindingThread
 			
 			if(current.checkedByThread == 0)
 			{
-				//TODO use huristic of brother
 				if(current.fScores[id] < (int)L && current.gScores[id] + brotherThread.F - brotherThread.Heuristic_cost_estimate(start, current) < (int)L)
 				{
-					foreach(Node neighbor in current.borderTiles){
+					foreach(Node neighbor in current.getNeighbors()){
 						if(neighbor != null && neighbor.isWalkable)
 						{
 							int cost = Heuristic_cost_estimate(current, neighbor);
@@ -135,8 +134,8 @@ public class PathfindingThread
 	public int Heuristic_cost_estimate (Node goal, Node current)
 	{
 		//Chebyshev distance
-		int dx1 = (int)Math.Abs((current.listIndex.x) - (goal.listIndex.x));
-		int dy1 = (int)Math.Abs((current.listIndex.z) - (goal.listIndex.z));
+		int dx1 = (int)Math.Abs((current.xIndex) - (goal.xIndex));
+		int dy1 = (int)Math.Abs((current.yIndex) - (goal.yIndex));
 		
 		if (dx1 > dy1)
 			return 14*dy1 + 10*(dx1-dy1);

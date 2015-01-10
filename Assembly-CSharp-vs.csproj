@@ -39,10 +39,10 @@
 	<Reference Include="System.Core" />
 	<Reference Include="System.Xml.Linq" />
 	<Reference Include="UnityEngine">
-	  <HintPath>H:/Unity/Editor/Data/Managed/UnityEngine.dll</HintPath>
+	  <HintPath>C:/Program Files (x86)/Unity/Editor/Data/Managed/UnityEngine.dll</HintPath>
 	</Reference>
 	<Reference Include="UnityEditor">
-	  <HintPath>H:/Unity/Editor/Data/Managed/UnityEditor.dll</HintPath>
+	  <HintPath>C:/Program Files (x86)/Unity/Editor/Data/Managed/UnityEditor.dll</HintPath>
 	</Reference>
   </ItemGroup>
   <ItemGroup>
@@ -52,10 +52,10 @@
      <Compile Include="Assets\scripts\MinHeap.cs" />
      <Compile Include="Assets\scripts\Node.cs" />
      <Compile Include="Assets\scripts\NodeVisualization.cs" />
-     <Compile Include="Assets\scripts\Pathfinding.cs" />
-     <Compile Include="Assets\scripts\PathfindingThread.cs" />
+     <Compile Include="Assets\scripts\PathfindingBidirectionalA.cs" />
+     <Compile Include="Assets\scripts\PathfindingSequentialA.cs" />
  <Reference Include="UnityEngine.UI">
- <HintPath>H:/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/4.6.1/UnityEngine.UI.dll</HintPath>
+ <HintPath>C:/Program Files (x86)/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/4.6.1/UnityEngine.UI.dll</HintPath>
  </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

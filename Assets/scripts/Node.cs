@@ -4,10 +4,9 @@ using System.Collections.Generic;
 
 public class Node
 {
-	//TODO: remove borderTiles, unityPosition, and list Index...
-	public Node[] borderTiles = new Node[8];
 	public Vector3 unityPosition;
-	public Vector3 listIndex;
+	public int xIndex;
+	public int yIndex;
 
 	// Used for stepping through the algorithms
 	public bool isCurrent;
@@ -62,16 +61,17 @@ public class Node
 	{
 	}
 
-	public Node (bool isWalkable, Vector3 unityPosition, Vector3 listIndex)
+	public Node (bool isWalkable, Vector3 unityPosition, int xIndex, int yIndex)
 	{
 		this.isWalkable = isWalkable;
 		this.unityPosition = unityPosition;
-		this.listIndex = listIndex;
+		this.xIndex = xIndex;
+		this.yIndex = yIndex;
 	}
 	
 	public Node clone ()
 	{
-		return new Node (isWalkable, unityPosition, listIndex);
+		return new Node (isWalkable, unityPosition, xIndex, yIndex);
 	}
 
 	public void setUnityPosition (Vector3 unityPosition)
@@ -83,43 +83,18 @@ public class Node
 	{
 		isWalkable = true;
 	}
-
 	
-	public Node[] getCloseNeighbors ()
+	public List<Node> getNeighbors ()
 	{
-		return new Node[4] {borderTiles [(int)Border.downLeft],
-								borderTiles [(int)Border.downRight],
-								borderTiles [(int)Border.upLeft],
-								borderTiles [(int)Border.upRight]};
+		List<Node> neighbors = new List<Node>();
+
+		for(int x = xIndex - 1; x <= xIndex + 1; x++)
+			for(int y = yIndex - 1; y <= yIndex + 1; y++)
+				if(x >= 0 && y >= 0 && x < Map.map.size_x && y < Map.map.size_z && (x != xIndex || y != yIndex))
+					neighbors.Add(Map.map.nodes[x,y]);
+
+		return neighbors;
 	}
 
-	public List<Node> getDiagnalWalkableNeighbors ()
-	{
-		List<Node> returnList = new List<Node>();
-		
-		if(borderTiles [(int)Border.Left]!=null && borderTiles [(int)Border.Left].isWalkable){
-			if(borderTiles [(int)Border.Up]!=null &&borderTiles [(int)Border.Up].isWalkable)
-				returnList.Add(borderTiles [(int)Border.upLeft]);
-			if(borderTiles [(int)Border.Down]!=null &&borderTiles [(int)Border.Down].isWalkable)
-				returnList.Add(borderTiles [(int)Border.downLeft]);
-		}
-
-		if(borderTiles [(int)Border.Right]!=null &&borderTiles [(int)Border.Right].isWalkable){
-			if(borderTiles [(int)Border.Up]!=null &&borderTiles [(int)Border.Up].isWalkable)
-				returnList.Add(borderTiles [(int)Border.upRight]);
-			if(borderTiles [(int)Border.Down]!=null &&borderTiles [(int)Border.Down].isWalkable)
-				returnList.Add(borderTiles [(int)Border.downRight]);
-		}
-		
-		return returnList;
-	}
-
-	public Node[] getDiagnalNeighbors ()
-	{
-		return new Node[4] {borderTiles [(int)Border.Left],
-								borderTiles [(int)Border.Right],
-								borderTiles [(int)Border.Down],
-								borderTiles [(int)Border.Up]};
-	}
 }
 
