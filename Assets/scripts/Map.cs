@@ -226,7 +226,7 @@ public class Map : MonoBehaviour
 		foreach (Node node in nodes) {
 			count++;
 			Instantiate (nodeVisual, new Vector3(node.unityPosition.x, 1, node.unityPosition.z), nodeVisual.transform.rotation);
-			if(count> 2000){
+			if(count> 100){
 				yield return new WaitForSeconds(.00001f);
 				count = 0;
 			}

@@ -12,10 +12,11 @@ public class NodeVisualization : MonoBehaviour {
 
 	void Start () {
 		onNode = Map.map.GetNodeFromLocation(transform.position);
+		InvokeRepeating("Visualize", 0, .25f);
 	}
 
 
-	void Update () {
+	void Visualize () {
 
 		DisableEnableRenderers();
 		if(Map.map.selectedNode == onNode){
